@@ -1,0 +1,57 @@
+.qv-object-d3-time-line .d3vl_area {
+  font: 10px sans-serif;
+}
+
+.qv-object-d3-time-line .d3vl_area .area {
+  fill: steelblue;
+}
+
+.qv-object-d3-time-line .axis-label {
+  font-size: 12px ;
+}
+.qv-object-d3-time-line .d3vl_line {
+  font-size: 11px ;
+  color: #666;
+}
+
+.qv-object-d3-time-line .d3vl_line .axis path,
+.qv-object-d3-time-line .d3vl_line .axis line {
+  fill: none;
+  stroke: #666;
+  shape-rendering: crispEdges;
+}
+
+/* Uncomment for invisible X axis
+  .qv-object-d3-time-line .d3vl_line .x.axis path {
+  display: none;
+} */
+
+.qv-object-d3-time-line .d3vl_line .line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+/* Future Use - multi-line charts
+.qv-object-d3-time-line .d3vl_multi_line {
+  font: 10px sans-serif;
+}
+
+.qv-object-d3-time-line .d3vl_multi_line .axis path,
+.qv-object-d3-time-line .d3vl_multi_line .axis line {
+  fill: none;
+  stroke: #222;
+  shape-rendering: crispEdges;
+}
+
+.qv-object-d3-time-line .d3vl_multi_line .x.axis path {
+  display: none;
+}
+
+.qv-object-d3-time-line .d3vl_multi_line .line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+ */
+

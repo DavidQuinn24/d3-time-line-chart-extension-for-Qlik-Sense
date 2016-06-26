@@ -1,0 +1,8 @@
+{
+	"name" : "d3 Time Line",
+	"description" : "d3 Line Chart for Date/Time dimensions",
+	"icon": "extension",
+	"type" : "visualization",
+	"version": 1.0,
+	"author": "David Quinn"
+}
