@@ -21,6 +21,8 @@ Please note that this is my first published Qlik Sense Extension, and my first u
 
 I am also not a skilled Javascript programmer - suggestions on improvements are welcome.
 
+Tested on Qlik Sense Desktop 2.2 and Qlik Sense Enterprise Server 2.2
+
 Version History
 ---------------
 1.1 Added option to show the tooltips (data point values with mouseOver)
