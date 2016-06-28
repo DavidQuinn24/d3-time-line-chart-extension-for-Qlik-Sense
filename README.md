@@ -16,8 +16,12 @@ You should then have a 'd3 Time Line' Chart available to use in your Qlik Sense 
 Current (main) limitations
 * Only supports 1 Dimension & 1 Measure (i.e. a single line chart)
 * No interactivity - you cannot make selections in the chart
-* No tooltips
 
 Please note that this is my first published Qlik Sense Extension, and my first use of GitHub... fingers crossed it all works!
 
 I am also not a skilled Javascript programmer - suggestions on improvements are welcome.
+
+Version History
+---------------
+1.1 Added option to show the tooltips (data point values with mouseOver)
+	Various small tweaks such as better left margin sizing to cope with axis labels (still not perfect as D3 often reformats them)

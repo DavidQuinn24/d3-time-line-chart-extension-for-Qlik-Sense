@@ -6,18 +6,19 @@
   fill: steelblue;
 }
 
-.qv-object-d3-time-line .axis-label {
-  font-size: 12px ;
-}
 .qv-object-d3-time-line .d3vl_line {
   font-size: 11px ;
-  color: #666;
+  color: #AAA;
+}
+
+.qv-object-d3-time-line .d3vl_line .axis-label {
+  font-size: 12px ;
 }
 
 .qv-object-d3-time-line .d3vl_line .axis path,
 .qv-object-d3-time-line .d3vl_line .axis line {
   fill: none;
-  stroke: #666;
+  stroke: #AAA;
   shape-rendering: crispEdges;
 }
 
@@ -30,6 +31,13 @@
   fill: none;
   stroke: steelblue;
   stroke-width: 1.5px;
+}
+
+.qv-object-d3-time-line .d3vl_line .focus .tooltip {
+  font-size: 10px ;
+  font-weight: bold;
+  fill: #444; /* font colour */
+  opacity: 0.9;
 }
 
 /* Future Use - multi-line charts

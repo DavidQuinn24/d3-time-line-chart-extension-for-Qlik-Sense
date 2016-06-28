@@ -10,7 +10,6 @@ define(["jquery", "./js/d3.min", "./js/senseD3utils", "./js/senseUtils"],
 			href: require.toUrl( "extensions/d3-time-line/d3-time-line.css")
 		}).appendTo("head");
 
-//		var lastUsedChart = -1;
 		return {
 			initialProperties: {
 				version: 1.0,
@@ -57,6 +56,7 @@ define(["jquery", "./js/d3.min", "./js/senseD3utils", "./js/senseUtils"],
 									{label:"DD-MM-YYYY", value:"%d-%m-%Y"},
 									{label:"YYYY-MMM", value:"%Y-%b"},
 									{label:"MM/YYYY", value:"%m/%Y"},
+									{label:"hh:mm", value:"%H:%M"},
 									{label:"YYYY", value:"%Y"}],
 								defaultValue: "%d/%m/%Y"
 							},
@@ -75,6 +75,19 @@ define(["jquery", "./js/d3.min", "./js/senseD3utils", "./js/senseUtils"],
 									{label:"Cardinal",value:"cardinal-open"}],
 								defaultValue: "linear"
 							},
+							/* Removing for now as it breaks the tooltip option
+							 * For now ensure that data is sorted Ascending Numerically
+							autoSort: { 
+								type: "boolean",
+								component: "switch",
+								label: "Auto Sort",
+								ref: "autoSort",
+								options: [
+									{label:"Yes",value:true},
+									{label:"No",value:false}],
+									defaultValue: false
+							},
+							*/
 							showDataPoints: { 
 								type: "boolean",
 								component: "switch",
@@ -82,6 +95,14 @@ define(["jquery", "./js/d3.min", "./js/senseD3utils", "./js/senseUtils"],
 								ref: "showDataPoints",
 								options: [{	value: false,	label: "No"}, {	value: true,	label: "Yes"}],
 								defaultValue: false
+							},
+							showValuesOnMouseOver: { 
+								type: "boolean",
+								component: "switch",
+								label: "MouseOver",
+								ref: "showValuesOnMouseOver",
+								options: [{	value: false,	label: "No"}, {	value: true,	label: "Yes"}],
+								defaultValue: true
 							},
 							showFill: { 
 								type: "boolean",
@@ -129,17 +150,17 @@ function getLabelWidth(axis, svg, biggestValue) {
 		.attr("class", "axis-label")
         .style("font-weight", "bold")
 		.style("fill","#444")
-		.text(biggestValue);
-
+		.text(biggestValue)
+		;
 	// Get the temp axis max label width
-	var label_width = d3.max(svg.selectAll(".y.axis.temp text")[0], function(d) {
-		return d.clientWidth + 10;
+	var labelWidth = d3.max(svg.selectAll(".y.axis.temp text")[0], function(d) {
+		return d.clientWidth ;
 	});
-
 	// Remove the temp axis
 	svg.selectAll(".y.axis.temp").remove();
 
-	return label_width;
+	return labelWidth ;
+
 }
 
 var viz = function($element,layout,_this) {
@@ -148,8 +169,18 @@ var viz = function($element,layout,_this) {
 		ext_width = $element.width(),
 		ext_height = $element.height();
 		
-//var formatDate = d3.time.format("%d-%b-%y");
-var parseDate = d3.time.format(layout.dateformat).parse;
+	var margin = {top: 25, right: 20, bottom: 50, left: 20},
+	    width = ext_width - (margin.left + margin.right),
+	    height = ext_height - margin.top - margin.bottom;
+		
+	var svg = d3.select("#" + id).append("svg")
+		.attr("width", ext_width )
+		.attr("height", ext_height )
+		.append("g")
+		.attr("id","svgTransformer")
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+		
+	var parseDate = d3.time.format(layout.dateformat).parse;
 
 	var data = layout.qHyperCube.qDataPages[0].qMatrix.map(function(d) {
 		return {
@@ -157,11 +188,14 @@ var parseDate = d3.time.format(layout.dateformat).parse;
 			"y":d[1].qNum
 		}
 	});
+//	if (layout.autoSort ) {
+//			data = data.sort( function (a,b) { return parseDate(b.x) - parseDate(a.x) } );
+//	}
 
-	var margin = {top: 25, right: 20, bottom: 25, left: 50},
-	    width = ext_width - margin.left - margin.right,
-	    height = ext_height - margin.top - margin.bottom;
+//});
 
+
+// SET UP THE SCALES, AXES etc
 
 	var x = d3.time.scale()
 		.range([0, width]);
@@ -176,6 +210,8 @@ var parseDate = d3.time.format(layout.dateformat).parse;
 	var yAxis = d3.svg.axis()
 		.scale(y)
 		.orient("left");
+		
+// line and area functions used later to plot the data (they interpret the date/time format)
 
 	var line = d3.svg.line()
 		.interpolate(layout.lineStyle)
@@ -190,29 +226,51 @@ var parseDate = d3.time.format(layout.dateformat).parse;
 
 	x.domain(d3.extent(data, function(d) { return parseDate(d.x); }));
  	y.domain(d3.extent(data, function(d) { return d.y; }));	
-	
-	var svg = d3.select("#" + id).append("svg")
-	    .attr("width", ext_width )
-	    .attr("height", ext_height )
-		.append("g")
-		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-	var label_width = getLabelWidth(yAxis,svg, d3.max(data, function (d) { return d.y })); 	
+	var label_width = getLabelWidth(yAxis,svg, d3.max(data, function (d) { return d.y })); 
 
-	if (parseDate(data[0].x) == null) {
-//		console.info("Error converting Date/Time");
-		svg.append("text")
+	if (parseDate(data[0].x) == null) { // Either no data or error converting Date/Time, so display message and skip render
+		console.info(data.length + " items to plot");
+		if (data.length == 1) { console.info("single item: " + data[0].x + "," + data[0].y); }
+		if (data.length == 0) { // no data, so do nothing
+		} 
+		else {
+			svg.append("text")
 			.attr("class", "error")
 			.text("Error converting Date/Time. Check Format")
 			.attr("text-anchor", "middle")
 			.style("fill","#444")
 			.attr("transform", "translate(" + width/2 + "," + height/2 + ")")
+		}
 	}
 	else {	
+		// MAIN RENDER CODE:
+		
 		// Update the margins, plot width, and x scale range based on the label size
-		margin.left = margin.left + label_width;
-		width = ext_width - margin.left - margin.right;
 
+		width = ext_width - (margin.left + margin.right + label_width);
+
+		d3.select("#svgTransformer")
+		.attr("width", width)
+		.attr("transform", "translate(" + label_width + "," + margin.top + ")");
+
+		x = d3.time.scale()
+			.range([0, width]);
+
+		y = d3.scale.linear()
+			.range([height, 0]);
+
+		xAxis = d3.svg.axis()
+			.scale(x)
+			.orient("bottom");
+
+		yAxis = d3.svg.axis()
+			.scale(y)
+			.orient("left");		
+		x.domain(d3.extent(data, function(d) { return parseDate(d.x); }));
+	 	y.domain(d3.extent(data, function(d) { return d.y; }));	
+
+		// DRAW FILL FIRST SO THAT AXES & LINE GO ON TOP
 		if(layout.showFill) {
 			svg.append("path")
 			.style("fill", "lightsteelblue")
@@ -224,7 +282,10 @@ var parseDate = d3.time.format(layout.dateformat).parse;
 		svg.append("g")
 			.attr("class", "x axis")
 			.attr("transform", "translate(0," + height + ")")
-			.call(xAxis);
+			.call(xAxis)
+			.selectAll("text")
+			.attr("transform","translate(-8,0) rotate(-45)")
+			.style("text-anchor","end");
 
 		svg.append("g")
 			.attr("class", "y axis")
@@ -235,7 +296,7 @@ var parseDate = d3.time.format(layout.dateformat).parse;
 			.attr('text-anchor','start')
 			.attr("dy", ".71em")
 			.style("font-weight", "bold")
-			.style("fill","#444")
+//			.style("fill","#444")
 			.text(senseUtils.getMeasureLabel(1,layout));
 				
 		if (data.length>1) { // lines don't work with less than 2 points
@@ -265,6 +326,54 @@ var parseDate = d3.time.format(layout.dateformat).parse;
 			  .attr("cy", function(d) { return y(d.y); })
 			  .style("fill", "steelblue")		  ;
 		}
+
+		if (layout.showValuesOnMouseOver) {
+		// Display value when mouse hovers over chart 
+			var focus = svg.append("g")
+			  .attr("class", "focus")
+			  .style("display", "none")
+  	  		  .attr("transform", "translate(" + label_width + "," + margin.top + ")");
+
+
+		  focus.append("circle")
+		  	  .attr("class","tooltip")
+			  .attr("r", 4.5)
+			  .style("fill", "none")
+			  .style("stroke", "#444")
+			  .style("stroke-width","1.5px");
+
+		  focus.append("text")
+		  	  .attr("class","tooltip")
+			  .attr("x", 9)
+			  .attr("dy", ".35em");
+		  svg.append("rect")
+			  .attr("class", "overlay")
+			  .attr("width", width )
+			  .attr("height", height)
+			  .attr("stroke","green")
+			  .attr("stroke-width","2")
+			  .style("opacity", "0")
+			  .on("mouseover", function() { focus.style("display", null); })
+			  .on("mouseout", function() { focus.style("display", "none"); })
+			  .on("mousemove", mousemove);
+
+			var bisectDate = d3.bisector(function(d) { return parseDate(d.x); }).left
+		
+		  function mousemove() {
+			var x0 = x.invert(d3.mouse(this)[0]),
+				i = bisectDate(data, x0, 1)
+				d0 = data[i - 1],
+				d1 = data[i];
+				if (i < data.length) {
+					var d = x0 - parseDate(d0.x) > parseDate(d1.x) - x0 ? d1 : d0;
+				} else {
+					var d = d0;
+				}
+
+			focus.attr("transform", "translate(" + x(parseDate(d.x)) + "," + y(d.y) + ")");
+			focus.select("text").text((d.x + ": " + d.y));
+		  }
+		}
 	}
 }
 		
@@ -272,4 +381,14 @@ function type(d) {
   d.date = formatDate.parse(d.date);
   d.close = +d.close;
   return d;
+}
+
+function sortByTime(a, b) {
+    if (parseDate(a[x]) === parseDate(b[x])) {
+        return 0;
+    }
+    else {
+    	console.info("SORTING");
+        return (parseDate(a[x]) < parseDate(b[x])) ? -1 : 1;
+    }
 }
