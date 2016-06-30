@@ -96,6 +96,14 @@ define(["jquery", "./js/d3.min", "./js/senseD3utils", "./js/senseUtils"],
 								options: [{	value: false,	label: "No"}, {	value: true,	label: "Yes"}],
 								defaultValue: false
 							},
+							padData: { 
+								type: "boolean",
+								component: "switch",
+								label: "Pad Dates",
+								ref: "padData",
+								options: [{	value: false,	label: "No"}, {	value: true,	label: "Yes"}],
+								defaultValue: false
+							},
 							showValuesOnMouseOver: { 
 								type: "boolean",
 								component: "switch",
@@ -140,12 +148,17 @@ define(["jquery", "./js/d3.min", "./js/senseD3utils", "./js/senseUtils"],
 
 
 // Helper functions
-function getLabelWidth(axis, svg, biggestValue) {
+function getLabelWidth(axis, svg, smallestValue, biggestValue) {
 	// Create a temporary yAxis to get the width needed for labels and add to the margin
 	svg.append("g")
 		.attr("class", "y axis temp")
 		.attr("transform", "translate(0," + 0 + ")")
 		.call(axis)
+		.append("text")
+		.attr("class", "axis-label")
+        .style("font-weight", "bold")
+		.style("fill","#444")
+		.text(smallestValue)
 		.append("text")
 		.attr("class", "axis-label")
         .style("font-weight", "bold")
@@ -158,9 +171,7 @@ function getLabelWidth(axis, svg, biggestValue) {
 	});
 	// Remove the temp axis
 	svg.selectAll(".y.axis.temp").remove();
-
 	return labelWidth ;
-
 }
 
 var viz = function($element,layout,_this) {
@@ -169,7 +180,8 @@ var viz = function($element,layout,_this) {
 		ext_width = $element.width(),
 		ext_height = $element.height();
 		
-	var margin = {top: 25, right: 20, bottom: 50, left: 20},
+	var left_margin = 20,
+		margin = {top: 25, right: 20, bottom: 50, left: left_margin},
 	    width = ext_width - (margin.left + margin.right),
 	    height = ext_height - margin.top - margin.bottom;
 		
@@ -177,22 +189,55 @@ var viz = function($element,layout,_this) {
 		.attr("width", ext_width )
 		.attr("height", ext_height )
 		.append("g")
-		.attr("id","svgTransformer")
+		.attr("id",id + "Transformer")
 		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 		
 	var parseDate = d3.time.format(layout.dateformat).parse;
 
 	var data = layout.qHyperCube.qDataPages[0].qMatrix.map(function(d) {
 		return {
-			"x":d[0].qText,
+			"x":parseDate(d[0].qText), 
 			"y":d[1].qNum
 		}
 	});
-//	if (layout.autoSort ) {
-//			data = data.sort( function (a,b) { return parseDate(b.x) - parseDate(a.x) } );
-//	}
 
-//});
+	if (layout.padData) {
+		// ADD ZERO VALUES WHERE THERE ARE GAPS IN THE DATA
+
+		// ASSUMES the data is sorted low to high
+		var date_range = d3.time.days(
+			d3.time.minute.floor(data[0].x), 
+//		  new Date(+d3.time.minute.ceil(data[data.length - 1].x)+1), 1); // the +1 stops the last record being omitted
+		  new Date(+d3.time.minute.ceil(data[data.length - 1].x)+1), 1); // the +1 stops the last record being omitted
+
+// console.info("Len: " + data.length 
+//	+ " Dates:" + d3.time.minute.floor(data[0].x) + "," + new Date(+d3.time.minute.ceil(data[data.length - 1].x)+1));
+		if (date_range === undefined || date_range.length == 0) {
+			console.info("Unable to interpret date range (" + d3.time.minute.floor(data[0].x)); }
+		else {
+			  var m = d3.map(data, function(d) {
+			  return d.x
+			});
+			var newData = date_range.map(function(bucket) {
+			  if (m.get(bucket)) {
+//			    console.info("passing over " + bucket);
+			    return m.get(bucket);
+			  } else {
+//			    console.info("creating value for " + bucket);
+			    return {
+			      x: bucket,
+			      y: 0
+			    };
+			  }
+			});
+			var numAdded = newData.length - data.length;
+			console.info("Added " + numAdded + " rows of padding");
+	//		console.info(data);
+	//		console.info(newData);
+			data = newData;
+			newData = null;
+			}
+		}
 
 
 // SET UP THE SCALES, AXES etc
@@ -215,21 +260,21 @@ var viz = function($element,layout,_this) {
 
 	var line = d3.svg.line()
 		.interpolate(layout.lineStyle)
-		.x(function(d) { return x(parseDate(d.x)); })
+		.x(function(d) { return x(d.x); })
 		.y(function(d) { return y(d.y); });
 
 	var poly = d3.svg.area()
 		.interpolate(layout.lineStyle)
-		.x(function(d) { return x(parseDate(d.x)); })
+		.x(function(d) { return x(d.x); })
 		.y0(height)
 		.y1(function(d) { return y(d.y); });	
 
-	x.domain(d3.extent(data, function(d) { return parseDate(d.x); }));
+	x.domain(d3.extent(data, function(d) { return d.x; }));
  	y.domain(d3.extent(data, function(d) { return d.y; }));	
 
-	var label_width = getLabelWidth(yAxis,svg, d3.max(data, function (d) { return d.y })); 
+	var label_width = getLabelWidth(yAxis,svg, d3.min(data, function (d) { return d.y }), d3.max(data, function (d) { return d.y })); 
 
-	if (parseDate(data[0].x) == null) { // Either no data or error converting Date/Time, so display message and skip render
+	if (data[0].x == null) { // Either no data or error converting Date/Time, so display message and skip render
 		console.info(data.length + " items to plot");
 		if (data.length == 1) { console.info("single item: " + data[0].x + "," + data[0].y); }
 		if (data.length == 0) { // no data, so do nothing
@@ -246,13 +291,13 @@ var viz = function($element,layout,_this) {
 	else {	
 		// MAIN RENDER CODE:
 		
-		// Update the margins, plot width, and x scale range based on the label size
+		// Update the margins, plot width, and x scale range based on the y axis label size
+		margin.left = left_margin + label_width;
+		width = ext_width - (margin.left + margin.right );
 
-		width = ext_width - (margin.left + margin.right + label_width);
-
-		d3.select("#svgTransformer")
-		.attr("width", width)
-		.attr("transform", "translate(" + label_width + "," + margin.top + ")");
+		d3.select("#" + id + "Transformer")
+			.attr("width", width)
+			.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 		x = d3.time.scale()
 			.range([0, width]);
@@ -266,8 +311,9 @@ var viz = function($element,layout,_this) {
 
 		yAxis = d3.svg.axis()
 			.scale(y)
-			.orient("left");		
-		x.domain(d3.extent(data, function(d) { return parseDate(d.x); }));
+			.orient("left");	
+
+		x.domain(d3.extent(data, function(d) { return d.x; }));
 	 	y.domain(d3.extent(data, function(d) { return d.y; }));	
 
 		// DRAW FILL FIRST SO THAT AXES & LINE GO ON TOP
@@ -283,7 +329,7 @@ var viz = function($element,layout,_this) {
 			.attr("class", "x axis")
 			.attr("transform", "translate(0," + height + ")")
 			.call(xAxis)
-			.selectAll("text")
+			.selectAll("text") 
 			.attr("transform","translate(-8,0) rotate(-45)")
 			.style("text-anchor","end");
 
@@ -312,7 +358,7 @@ var viz = function($element,layout,_this) {
 			  .enter().append("circle")
 			  .attr("class", "dot")
 			  .attr("r", 2)
-			  .attr("cx", function(d) { return x(parseDate(d.x)); })
+			  .attr("cx", function(d) { return x(d.x); })
 			  .attr("cy", function(d) { return y(d.y); })
 			  .style("fill", "blue")		  ;
 		}
@@ -322,7 +368,7 @@ var viz = function($element,layout,_this) {
 			  .enter().append("circle")
 			  .attr("class", "dot")
 			  .attr("r", 2)
-			  .attr("cx", function(d) { return x(parseDate(d.x)); })
+			  .attr("cx", function(d) { return x(d.x); })
 			  .attr("cy", function(d) { return y(d.y); })
 			  .style("fill", "steelblue")		  ;
 		}
@@ -332,7 +378,7 @@ var viz = function($element,layout,_this) {
 			var focus = svg.append("g")
 			  .attr("class", "focus")
 			  .style("display", "none")
-  	  		  .attr("transform", "translate(" + label_width + "," + margin.top + ")");
+  	  		  .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 
 		  focus.append("circle")
@@ -357,7 +403,7 @@ var viz = function($element,layout,_this) {
 			  .on("mouseout", function() { focus.style("display", "none"); })
 			  .on("mousemove", mousemove);
 
-			var bisectDate = d3.bisector(function(d) { return parseDate(d.x); }).left
+			var bisectDate = d3.bisector(function(d) { return d.x; }).left
 		
 		  function mousemove() {
 			var x0 = x.invert(d3.mouse(this)[0]),
@@ -365,13 +411,13 @@ var viz = function($element,layout,_this) {
 				d0 = data[i - 1],
 				d1 = data[i];
 				if (i < data.length) {
-					var d = x0 - parseDate(d0.x) > parseDate(d1.x) - x0 ? d1 : d0;
+					var d = x0 - d0.x > d1.x - x0 ? d1 : d0;
 				} else {
 					var d = d0;
 				}
 
-			focus.attr("transform", "translate(" + x(parseDate(d.x)) + "," + y(d.y) + ")");
-			focus.select("text").text((d.x + ": " + d.y));
+			focus.attr("transform", "translate(" + x(d.x) + "," + y(d.y) + ")");
+			focus.select("text").text( d.y);
 		  }
 		}
 	}
@@ -384,11 +430,11 @@ function type(d) {
 }
 
 function sortByTime(a, b) {
-    if (parseDate(a[x]) === parseDate(b[x])) {
+    if (a[x] === b[x]) {
         return 0;
     }
     else {
     	console.info("SORTING");
-        return (parseDate(a[x]) < parseDate(b[x])) ? -1 : 1;
+        return (a[x] < b[x]) ? -1 : 1;
     }
 }

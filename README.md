@@ -26,4 +26,15 @@ Tested on Qlik Sense Desktop 2.2 and Qlik Sense Enterprise Server 2.2
 Version History
 ---------------
 1.1 Added option to show the tooltips (data point values with mouseOver)
+	
 	Various small tweaks such as better left margin sizing to cope with axis labels (still not perfect as D3 often reformats them)
+
+1.2 Important update to fix bug. When two or more time line charts were on same sheet the y-axis label padding from one could interfere with the other.
+
+	Tweaked calculation of y-axis margin for labels; is now more accurate.
+	
+	Added an option to 'Pad Dates'. This adds zero values at midnight on every date in the range which has no data. 
+    Where a chart has two non-contiguous values this changes the display from           ___     to 
+                                                                                      _/   \_       _/\___/\_ 
+    Could do this a lot more intelligently, but leaving as is to see if people find it useful.
+	Only works when the time axis is a Date (not YYYY-MM, hh:mm etc.) 
